@@ -21,29 +21,45 @@
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 20px;
+            gap: 30px; /* Tăng khoảng cách giữa các card */
+            padding: 20px;
         }
         .game-item {
             background-color: #fff;
             border: 1px solid #ddd;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            padding: 20px;
+            border-radius: 15px; /* Bo tròn góc hơn */
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); /* Đổ bóng rõ hơn */
+            padding: 30px; /* Tăng padding */
             text-align: center;
-            width: 200px;
-            transition: transform 0.2s;
+            width: 280px; /* Tăng chiều rộng card */
+            min-height: 200px; /* Chiều cao tối thiểu */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
         }
         .game-item:hover {
-            transform: translateY(-5px);
+            transform: translateY(-10px) scale(1.02); /* Nảy lên và to hơn khi hover */
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
         }
         .game-item a {
             text-decoration: none;
             color: #007bff;
             font-weight: bold;
-            font-size: 1.2em;
+            font-size: 1.5em; /* Tăng kích thước chữ */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px; /* Khoảng cách giữa icon và chữ */
         }
         .game-item a:hover {
-            text-decoration: underline;
+            color: #0056b3;
+        }
+        .game-icon {
+            font-size: 4em; /* Kích thước icon */
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -51,10 +67,16 @@
     <h1>Chào mừng đến với thế giới trò chơi của Andy!</h1>
     <div class="game-list">
         <div class="game-item">
-            <a href="./Balls/index.html">Trò chơi 1: Phân loại màu sắc</a>
+            <a href="./Balls/index.html">
+                <span class="game-icon">🏀</span>
+                <span>Trò chơi 1: Màu sắc</span>
+            </a>
         </div>
         <div class="game-item">
-            <a href="./Animals/index.html">Trò chơi 2: Động vật</a>
+            <a href="./Hide/index.html">
+                <span class="game-icon">🙈</span>
+                <span>Trò chơi 2: Ẩn mồi</span>
+            </a>
         </div>
         <!-- Thêm các trò chơi khác vào đây -->
     </div>

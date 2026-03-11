@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trò chơi Ú Oà Tương Tác</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap');
+        body { font-family: 'Quicksand', sans-serif; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .bounce-subtle { animation: bounce 2s infinite; }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .character-peek { transform: translateY(40px) rotate(10deg); opacity: 0.3; }
+        .character-show { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    </style>
+</head>
+<body class="bg-indigo-50 min-h-screen p-4 flex flex-col items-center select-none">
+
+    <!-- Header -->
+    <div class="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-lg mb-6 text-center border-b-8 border-indigo-200 relative">
+        <h1 class="text-3xl font-black text-indigo-600 mb-2 flex justify-center items-center gap-2">
+            <i data-lucide="ghost"></i> Ú OÀ TƯƠNG TÁC
+        </h1>
+        <p id="game-message" class="text-gray-600 font-bold text-lg">Chọn tối đa 5 từ để bắt đầu chơi!</p>
+        
+        <!-- Nút quay lại trang chủ -->
+        <a href="../index.html" class="absolute top-4 right-4 bg-gray-200/95 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-full shadow-lg transition-all duration-200 text-base flex items-center gap-1">
+            🏠 Trang chủ
+        </a>
+        
+        <div id="score-container" class="hidden mt-4 flex justify-between items-center bg-indigo-100 rounded-full px-6 py-2">
+            <span class="font-bold text-indigo-700">Điểm: <span id="score-val">0</span></span>
+            <button onclick="resetToSelection()" class="flex items-center gap-1 text-indigo-600 font-bold hover:text-indigo-800 transition-colors">
+                <i data-lucide="refresh-cw" size="18"></i> Chọn lại từ
+            </button>
+        </div>
+    </div>
+
+    <!-- Màn hình chọn từ -->
+    <div id="selection-screen" class="w-full max-w-4xl bg-white rounded-[2rem] p-6 shadow-xl border-4 border-white">
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4 px-2">
+            <h2 class="text-xl font-bold text-gray-700">Danh sách từ vựng (<span id="count-val">0</span>/5)</h2>
+            <button id="start-btn" disabled onclick="startGame()" class="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 rounded-full font-black text-white transition-all transform active:scale-95 bg-gray-300 cursor-not-allowed">
+                CHƠI NGAY <i data-lucide="play-circle"></i>
+            </button>
+        </div>
+        <div id="vocab-grid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 h-[50vh] overflow-y-auto p-2 scrollbar-hide">
+            <!-- Từ vựng sẽ được load ở đây -->
+        </div>
+    </div>
+
+    <!-- Màn hình chơi game -->
+    <div id="game-screen" class="hidden relative w-full max-w-4xl h-[60vh] bg-sky-100 rounded-[3rem] border-8 border-white shadow-2xl overflow-hidden flex items-end justify-around pb-16 px-4">
+        <!-- Background Decor -->
+        <div class="absolute top-10 left-10 w-20 h-20 bg-white/40 rounded-full blur-xl"></div>
+        <div id="game-stage" class="w-full flex justify-around items-end h-full">
+            <!-- Các vật thể trốn tìm sẽ ở đây -->
+        </div>
+        
+        <!-- Nút tìm tiếp -->
+        <div id="next-btn-container" class="hidden absolute inset-0 flex items-center justify-center bg-white/20 backdrop-blur-[2px] z-20">
+            <button onclick="newRound()" class="bg-green-500 hover:bg-green-600 text-white font-black px-10 py-5 rounded-full shadow-2xl flex items-center gap-3 text-2xl animate-bounce transform transition hover:scale-110">
+                TÌM TIẾP NÀO! <i data-lucide="eye"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-8 max-w-2xl w-full text-sm text-gray-500 bg-white/80 p-6 rounded-2xl border border-gray-100 shadow-sm">
+        <h3 class="font-bold text-indigo-700 mb-2 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="party-popper" size="18"></i> Gợi ý cho cha mẹ:
+        </h3>
+        <ul class="list-disc pl-5 space-y-2 font-medium">
+            <li>Chọn đồ vật có thật trong phòng để trẻ dễ liên tưởng.</li>
+            <li>Nói to "Ú Oà!" và lặp lại tên vật khi tìm thấy.</li>
+            <li>Nhân vật cố tình "lộ diện" một chút để trẻ hiểu vật không biến mất hoàn toàn.</li>
+        </ul>
+    </div>
+
+    <script>
+        const vocabulary = [
+            { id: 1, name: 'Con mèo', icon: '🐱' }, { id: 2, name: 'Con chó', icon: '🐶' },
+            { id: 3, name: 'Con gà', icon: '🐔' }, { id: 4, name: 'Con vịt', icon: '🦆' },
+            { id: 5, name: 'Con lợn', icon: '🐷' }, { id: 6, name: 'Con thỏ', icon: '🐰' },
+            { id: 7, name: 'Con cá', icon: '🐟' }, { id: 8, name: 'Con voi', icon: '🐘' },
+            { id: 9, name: 'Quả táo', icon: '🍎' }, { id: 10, name: 'Quả chuối', icon: '🍌' },
+            { id: 11, name: 'Quả cam', icon: '🍊' }, { id: 12, name: 'Dưa hấu', icon: '🍉' },
+            { id: 13, name: 'Cái ghế', icon: '🪑' }, { id: 14, name: 'Cái đèn', icon: '💡' },
+            { id: 15, name: 'Quyển sách', icon: '📖' }, { id: 16, name: 'Ô tô', icon: '🚗' },
+            { id: 17, name: 'Máy bay', icon: '✈️' }, { id: 18, name: 'Mặt trời', icon: '☀️' },
+            { id: 19, name: 'Cầu vồng', icon: '🌈' }, { id: 20, name: 'Bông hoa', icon: '🌸' },
+            { id: 21, name: 'Quả bóng', icon: '⚽' }, { id: 22, name: 'Gấu bông', icon: '🧸' },
+            { id: 23, name: 'Hộp quà', icon: '🎁' }, { id: 24, name: 'Bánh kem', icon: '🎂' },
+            { id: 25, name: 'Kem', icon: '🍦' }, { id: 26, name: 'Cái ô', icon: '☂️' },
+            { id: 27, name: 'Con ong', icon: '🐝' }, { id: 28, name: 'Con rùa', icon: '🐢' },
+            { id: 29, name: 'Cái cốc', icon: '🥛' }, { id: 30, name: 'Cái mũ', icon: '🧢' }
+            // Có thể thêm thêm 70 từ khác vào đây tương tự...
+        ];
+
+        let selectedWords = [];
+        let score = 0;
+        let hidingPlace = null;
+        let isFound = false;
+
+        function init() {
+            lucide.createIcons();
+            const grid = document.getElementById('vocab-grid');
+            vocabulary.forEach(word => {
+                const btn = document.createElement('button');
+                btn.id = `word-${word.id}`;
+                btn.className = 'p-4 rounded-2xl border-2 border-gray-100 bg-gray-50 hover:border-indigo-200 transition-all flex flex-col items-center gap-2 relative';
+                btn.innerHTML = `
+                    <span class="text-4xl">${word.icon}</span>
+                    <span class="text-xs font-bold text-gray-600 text-center">${word.name}</span>
+                    <div class="check hidden absolute top-1 right-1 text-indigo-600"><i data-lucide="check-circle-2" size="16"></i></div>
+                `;
+                btn.onclick = () => toggleWord(word);
+                grid.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        function toggleWord(word) {
+            const index = selectedWords.findIndex(w => w.id === word.id);
+            const btn = document.getElementById(`word-${word.id}`);
+            
+            if (index > -1) {
+                selectedWords.splice(index, 1);
+                btn.classList.remove('border-indigo-500', 'bg-indigo-50', 'scale-95');
+                btn.querySelector('.check').classList.add('hidden');
+            } else if (selectedWords.length < 5) {
+                selectedWords.push(word);
+                btn.classList.add('border-indigo-500', 'bg-indigo-50', 'scale-95');
+                btn.querySelector('.check').classList.remove('hidden');
+            }
+
+            document.getElementById('count-val').innerText = selectedWords.length;
+            const startBtn = document.getElementById('start-btn');
+            if (selectedWords.length > 0) {
+                startBtn.classList.remove('bg-gray-300', 'cursor-not-allowed');
+                startBtn.classList.add('bg-green-500', 'hover:bg-green-600', 'shadow-lg');
+                startBtn.disabled = false;
+            } else {
+                startBtn.classList.add('bg-gray-300', 'cursor-not-allowed');
+                startBtn.classList.remove('bg-green-500', 'hover:bg-green-600', 'shadow-lg');
+                startBtn.disabled = true;
+            }
+        }
+
+        function startGame() {
+            document.getElementById('selection-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('score-container').classList.remove('hidden');
+            newRound();
+        }
+
+        function newRound() {
+            isFound = false;
+            hidingPlace = Math.floor(Math.random() * selectedWords.length);
+            document.getElementById('game-message').innerText = "Bạn nhỏ đang trốn sau một đồ vật đấy!";
+            document.getElementById('next-btn-container').classList.add('hidden');
+            renderGameStage();
+        }
+
+        function renderGameStage() {
+            const stage = document.getElementById('game-stage');
+            stage.innerHTML = '';
+            
+            selectedWords.forEach((word, index) => {
+                const container = document.createElement('div');
+                container.className = 'relative flex flex-col items-center';
+                
+                let characterHtml = '';
+                if (index === hidingPlace) {
+                    characterHtml = `
+                        <div id="character" class="absolute -top-14 transition-all duration-700 character-peek">
+                            <div class="w-20 h-20 bg-yellow-400 rounded-full border-4 border-yellow-600 flex items-center justify-center relative shadow-lg">
+                                <div class="absolute top-5 left-5 w-2 h-2 bg-black rounded-full animate-pulse"></div>
+                                <div class="absolute top-5 right-5 w-2 h-2 bg-black rounded-full animate-pulse"></div>
+                                <div class="absolute bottom-3 w-8 h-4 border-b-4 border-black rounded-full"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = `
+                    ${characterHtml}
+                    <div class="flex flex-col items-center gap-2 relative z-10">
+                        <button onclick="handleObjectClick(${index})" class="w-28 h-28 sm:w-36 sm:h-36 bg-white rounded-3xl flex items-center justify-center text-6xl shadow-xl border-4 border-indigo-100 transform transition hover:scale-105 active:scale-90">
+                            ${word.icon}
+                        </button>
+                        <div class="bg-white/80 px-4 py-1 rounded-full font-bold text-indigo-600 shadow-sm text-sm sm:text-base">
+                            ${word.name}
+                        </div>
+                    </div>
+                `;
+                stage.appendChild(container);
+            });
+        }
+
+        function handleObjectClick(index) {
+            if (isFound) return;
+
+            if (index === hidingPlace) {
+                isFound = true;
+                score++;
+                document.getElementById('score-val').innerText = score;
+                document.getElementById('game-message').innerText = `Ú oà! Tìm thấy rồi! Đây là ${selectedWords[index].name}!`;
+                
+                const char = document.getElementById('character');
+                char.classList.remove('character-peek');
+                char.classList.add('character-show');
+                
+                setTimeout(() => {
+                    document.getElementById('next-btn-container').classList.remove('hidden');
+                }, 500);
+            } else {
+                document.getElementById('game-message').innerText = "Không phải rồi, thử tìm chỗ khác xem!";
+            }
+        }
+
+        function resetToSelection() {
+            selectedWords = [];
+            score = 0;
+            document.getElementById('score-val').innerText = "0";
+            document.getElementById('count-val').innerText = "0";
+            document.getElementById('selection-screen').classList.remove('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('score-container').classList.add('hidden');
+            document.getElementById('game-message').innerText = "Chọn tối đa 5 từ để bắt đầu chơi!";
+            
+            // Reset grid UI
+            vocabulary.forEach(word => {
+                const btn = document.getElementById(`word-${word.id}`);
+                btn.classList.remove('border-indigo-500', 'bg-indigo-50', 'scale-95');
+                btn.querySelector('.check').classList.add('hidden');
+            });
+            
+            const startBtn = document.getElementById('start-btn');
+            startBtn.classList.add('bg-gray-300', 'cursor-not-allowed');
+            startBtn.classList.remove('bg-green-500', 'hover:bg-green-600', 'shadow-lg');
+            startBtn.disabled = true;
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
