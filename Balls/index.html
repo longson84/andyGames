@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bé Tập Phân Loại Màu Sắc</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            touch-action: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to bottom, #e0f2fe, #f0f9ff);
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        .ball {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 10;
+            transition: transform 0.1s ease;
+        }
+        .ball:active {
+            cursor: grabbing;
+            transform: scale(1.1);
+        }
+        .basket {
+            position: absolute;
+            bottom: 20px;
+            width: 160px;
+            height: 120px;
+            border-radius: 15px 15px 50% 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 10px;
+            border: 5px solid rgba(255,255,255,0.5);
+            transition: transform 0.2s;
+        }
+        .basket-label {
+            font-weight: bold;
+            color: white;
+            font-size: 1.2rem;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-bounce-slow {
+            animation: bounce 2s infinite;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- UI -->
+    <div class="absolute top-4 left-4 z-20 bg-white/80 p-3 rounded-full shadow-md flex items-center gap-4">
+        <div class="text-xl font-bold text-blue-600">Điểm: <span id="score">0</span></div>
+    </div>
+
+    <!-- Nền trang trí -->
+    <div class="absolute bottom-0 w-full h-32 bg-green-200/50 -z-10"></div>
+    <div class="absolute top-10 right-10 text-4xl animate-bounce-slow opacity-50">☀️</div>
+    <div class="absolute top-20 left-20 text-3xl animate-bounce-slow opacity-30" style="animation-delay: 1s;">☁️</div>
+
+    <!-- Rổ bóng -->
+    <div id="basket-red" class="basket bg-red-500 left-[15%]" data-color="red">
+        <div class="basket-label">RỔ ĐỎ</div>
+        <div class="text-3xl">🧺</div>
+    </div>
+
+    <div id="basket-blue" class="basket bg-blue-500 right-[15%]" data-color="blue">
+        <div class="basket-label">RỔ XANH</div>
+        <div class="text-3xl">🧺</div>
+    </div>
+
+    <!-- Màn hình bắt đầu/kết thúc -->
+    <div id="overlay" class="absolute inset-0 bg-white/90 z-50 flex flex-center items-center justify-center flex-col p-6 text-center">
+        <h1 class="text-4xl font-bold text-blue-600 mb-4">Chào bé yêu!</h1>
+        <p class="text-xl text-gray-700 mb-8">Bé hãy kéo quả bóng rơi xuống vào đúng chiếc rổ cùng màu nhé!</p>
+        <button id="start-btn" class="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-4 px-10 rounded-full text-2xl shadow-lg transform transition active:scale-95">
+            BẮT ĐẦU CHƠI
+        </button>
+    </div>
+</div>
+
+<script>
+    const container = document.getElementById('game-container');
+    const scoreElement = document.getElementById('score');
+    const startBtn = document.getElementById('start-btn');
+    const overlay = document.getElementById('overlay');
+    const basketRed = document.getElementById('basket-red');
+    const basketBlue = document.getElementById('basket-blue');
+
+    let score = 0;
+    let gameActive = false;
+    let ballId = 0;
+    const colors = [
+        { name: 'red', hex: '#ef4444', label: '🍎' },
+        { name: 'blue', hex: '#3b82f6', label: '💧' }
+    ];
+
+    // Tạo âm thanh (Web Audio API để tránh cần file mp3 ngoài)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTone(freq, duration, type = 'sine') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function playSuccess() {
+        playTone(523.25, 0.1); // C5
+        setTimeout(() => playTone(659.25, 0.15), 50); // E5
+    }
+
+    function playFail() {
+        playTone(220, 0.3, 'sawtooth');
+    }
+
+    // Tạo hiệu ứng pháo hoa nhỏ khi bé bỏ đúng
+    function createParticles(x, y, color) {
+        for (let i = 0; i < 15; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = x + 'px';
+            p.style.top = y + 'px';
+            p.style.width = Math.random() * 10 + 5 + 'px';
+            p.style.height = p.style.width;
+            p.style.backgroundColor = color;
+            container.appendChild(p);
+
+            const angle = Math.random() * Math.PI * 2;
+            const velocity = Math.random() * 6 + 2;
+            let posX = x;
+            let posY = y;
+            let life = 1;
+
+            const anim = () => {
+                posX += Math.cos(angle) * velocity;
+                posY += Math.sin(angle) * velocity + 1; // trọng lực
+                life -= 0.02;
+                p.style.left = posX + 'px';
+                p.style.top = posY + 'px';
+                p.style.opacity = life;
+                if (life > 0) requestAnimationFrame(anim);
+                else p.remove();
+            };
+            requestAnimationFrame(anim);
+        }
+    }
+
+    function createBall() {
+        if (!gameActive) return;
+
+        const colorObj = colors[Math.floor(Math.random() * colors.length)];
+        const ball = document.createElement('div');
+        ball.className = 'ball';
+        ball.style.backgroundColor = colorObj.hex;
+        ball.innerHTML = `<span class="text-3xl select-none">${colorObj.label}</span>`;
+        ball.dataset.color = colorObj.name;
+        
+        // Vị trí rơi ngẫu nhiên
+        const startX = Math.random() * (window.innerWidth - 100) + 50;
+        ball.style.left = startX + 'px';
+        ball.style.top = '-100px';
+        
+        container.appendChild(ball);
+
+        let posY = -100;
+        let speed = 1.5 + (score / 20); // Tốc độ tăng rất chậm để bé không bị rối
+        let isDragging = false;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        const fallInterval = setInterval(() => {
+            if (!isDragging) {
+                posY += speed;
+                ball.style.top = posY + 'px';
+
+                // Nếu rơi quá màn hình mà không được chọn
+                if (posY > window.innerHeight) {
+                    clearInterval(fallInterval);
+                    ball.remove();
+                    if (gameActive) createBall();
+                }
+            }
+        }, 16);
+
+        // Xử lý kéo thả (Mouse & Touch)
+        const onStart = (e) => {
+            isDragging = true;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const rect = ball.getBoundingClientRect();
+            dragOffsetX = clientX - rect.left - 40;
+            dragOffsetY = clientY - rect.top - 40;
+            ball.style.zIndex = 100;
+        };
+
+        const onMove = (e) => {
+            if (!isDragging) return;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            ball.style.left = (clientX - 40) + 'px';
+            ball.style.top = (clientY - 40) + 'px';
+        };
+
+        const onEnd = () => {
+            if (!isDragging) return;
+            isDragging = false;
+            ball.style.zIndex = 10;
+            
+            const rect = ball.getBoundingClientRect();
+            const ballX = rect.left + rect.width / 2;
+            const ballY = rect.top + rect.height / 2;
+
+            // Kiểm tra va chạm với rổ
+            const checkBasket = (basket) => {
+                const bRect = basket.getBoundingClientRect();
+                return (
+                    ballX > bRect.left && 
+                    ballX < bRect.right && 
+                    ballY > bRect.top && 
+                    ballY < bRect.bottom
+                );
+            };
+
+            if (checkBasket(basketRed)) {
+                handleDrop(ball, 'red');
+            } else if (checkBasket(basketBlue)) {
+                handleDrop(ball, 'blue');
+            } else {
+                // Rơi tiếp từ vị trí hiện tại nếu thả ra ngoài rổ
+                posY = rect.top;
+            }
+        };
+
+        function handleDrop(ball, basketColor) {
+            const ballColor = ball.dataset.color;
+            if (ballColor === basketColor) {
+                // Đúng màu
+                score++;
+                scoreElement.innerText = score;
+                playSuccess();
+                createParticles(parseInt(ball.style.left) + 40, parseInt(ball.style.top) + 40, ball.style.backgroundColor);
+                
+                // Hiệu ứng rổ nảy lên
+                const targetBasket = basketColor === 'red' ? basketRed : basketBlue;
+                targetBasket.style.transform = 'scale(1.2)';
+                setTimeout(() => targetBasket.style.transform = 'scale(1)', 200);
+
+                clearInterval(fallInterval);
+                ball.remove();
+                createBall();
+            } else {
+                // Sai màu - cho bóng bay ngược lên một chút rồi rơi lại để bé thử lại
+                playFail();
+                ball.style.transform = 'shake 0.5s';
+                posY = parseInt(ball.style.top) - 50; 
+            }
+        }
+
+        ball.addEventListener('mousedown', onStart);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onEnd);
+
+        ball.addEventListener('touchstart', onStart, {passive: false});
+        window.addEventListener('touchmove', onMove, {passive: false});
+        window.addEventListener('touchend', onEnd);
+    }
+
+    startBtn.addEventListener('click', () => {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        overlay.style.display = 'none';
+        gameActive = true;
+        score = 0;
+        scoreElement.innerText = score;
+        createBall();
+    });
+
+    // Ngăn chặn cuộn trang trên mobile
+    document.addEventListener('touchmove', (e) => e.preventDefault(), {passive: false});
+
+</script>
+</body>
+</html>
