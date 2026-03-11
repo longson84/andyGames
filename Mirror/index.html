@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trò chơi Bắt Chước (Mirroring)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap');
+        body { font-family: 'Quicksand', sans-serif; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .action-card {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        @keyframes success-pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .animate-success { animation: success-pop 0.5s ease-out; }
+
+        .floating {
+            animation: floating 3s ease-in-out infinite;
+        }
+        @keyframes floating {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
+        }
+    </style>
+</head>
+<body class="bg-orange-50 min-h-screen p-4 flex flex-col items-center select-none">
+
+    <!-- Header -->
+    <div class="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-lg mb-6 text-center border-b-8 border-orange-200 relative">
+        <h1 class="text-3xl font-black text-orange-600 mb-2 flex justify-center items-center gap-2">
+            <i data-lucide="smile"></i> BẮT CHƯỚC (MIRRORING)
+        </h1>
+        <p id="game-message" class="text-gray-600 font-bold text-lg">Chọn 5 động tác để bắt đầu tập luyện!</p>
+        
+        <!-- Nút quay lại trang chủ -->
+        <a href="../index.html" class="absolute top-4 right-4 bg-gray-200/95 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-full shadow-lg transition-all duration-200 text-base flex items-center gap-1">
+            🏠 Trang chủ
+        </a>
+        
+        <div id="score-container" class="hidden mt-4 flex justify-between items-center bg-orange-100 rounded-full px-6 py-2">
+            <span class="font-bold text-orange-700">Tiến độ: <span id="progress-val">0</span>/5</span>
+            <button onclick="resetToSelection()" class="flex items-center gap-1 text-orange-600 font-bold hover:text-orange-800 transition-colors">
+                <i data-lucide="rotate-ccw" size="18"></i> Chọn lại
+            </button>
+        </div>
+    </div>
+
+    <!-- Màn hình chọn động tác -->
+    <div id="selection-screen" class="w-full max-w-4xl bg-white rounded-[2rem] p-6 shadow-xl border-4 border-white">
+        <div class="flex flex-col sm:row justify-between items-center mb-6 gap-4 px-2">
+            <h2 class="text-xl font-bold text-gray-700">Danh sách động tác (<span id="count-val">0</span>/5)</h2>
+            <button id="start-btn" disabled onclick="startGame()" class="w-full sm:w-auto flex items-center justify-center gap-2 px-10 py-4 rounded-full font-black text-white transition-all transform active:scale-95 bg-gray-300 cursor-not-allowed">
+                BẮT ĐẦU TẬP <i data-lucide="play"></i>
+            </button>
+        </div>
+        <div id="action-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 h-[55vh] overflow-y-auto p-2 scrollbar-hide">
+            <!-- Động tác sẽ được load ở đây -->
+        </div>
+    </div>
+
+    <!-- Màn hình thực hiện động tác -->
+    <div id="game-screen" class="hidden w-full max-w-4xl flex flex-col items-center">
+        <div class="relative w-full aspect-video sm:h-[50vh] bg-white rounded-[3rem] border-8 border-orange-100 shadow-2xl overflow-hidden flex flex-col items-center justify-center p-8">
+            
+            <div id="current-action-display" class="flex flex-col items-center gap-6">
+                <div id="action-icon" class="text-9xl floating">👋</div>
+                <div id="action-name" class="text-4xl font-black text-orange-600 text-center">Vẫy tay nào!</div>
+                <p id="action-desc" class="text-gray-500 text-lg font-medium text-center max-w-md">Bố mẹ hãy làm mẫu động tác vẫy tay để con bắt chước nhé.</p>
+            </div>
+
+            <!-- Nút xác nhận hoàn thành -->
+            <button onclick="markComplete()" id="complete-btn" class="mt-10 bg-green-500 hover:bg-green-600 text-white font-black px-12 py-5 rounded-full shadow-2xl flex items-center gap-3 text-2xl transform transition hover:scale-105 active:scale-95">
+                CON LÀM ĐƯỢC RỒI! <i data-lucide="check-circle"></i>
+            </button>
+        </div>
+
+        <!-- Thanh tiến trình dưới -->
+        <div id="progress-dots" class="flex gap-4 mt-8">
+            <!-- Các chấm tiến trình sẽ được thêm ở đây -->
+        </div>
+    </div>
+
+    <!-- Màn hình chúc mừng -->
+    <div id="win-screen" class="hidden w-full max-w-2xl bg-white rounded-[3rem] p-10 shadow-2xl text-center border-8 border-green-100">
+        <div class="text-8xl mb-6">🎉</div>
+        <h2 class="text-4xl font-black text-green-600 mb-4">TUYỆT VỜI LUÔN!</h2>
+        <p class="text-gray-600 text-xl mb-8 font-medium">Bé đã hoàn thành xuất sắc bài tập bắt chước hôm nay.</p>
+        <button onclick="resetToSelection()" class="bg-orange-500 hover:bg-orange-600 text-white font-black px-12 py-5 rounded-full shadow-xl text-xl flex items-center gap-2 mx-auto">
+            TẬP LẠI VỚI TỪ MỚI <i data-lucide="refresh-cw"></i>
+        </button>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-8 max-w-2xl w-full text-sm text-gray-500 bg-white/80 p-6 rounded-2xl border border-gray-100 shadow-sm">
+        <h3 class="font-bold text-orange-700 mb-2 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="lightbulb" size="18"></i> Hướng dẫn bài tập Mirroring:
+        </h3>
+        <ul class="list-disc pl-5 space-y-2 font-medium">
+            <li><b>Làm mẫu:</b> Cha mẹ thực hiện động tác trước mặt bé một cách chậm rãi.</li>
+            <li><b>Khuyến khích:</b> Đợi bé quan sát và cố gắng cử động theo. Không cần ép bé làm chính xác ngay lập tức.</li>
+            <li><b>Khen ngợi:</b> Nhấn nút "Con làm được rồi" và vỗ tay thật lớn mỗi khi bé có nỗ lực bắt chước.</li>
+            <li><b>Kết nối:</b> Duy trì tương tác mắt (eye-contact) xuyên suốt quá trình thực hiện.</li>
+        </ul>
+    </div>
+
+    <script>
+        const actionsData = [
+            { id: 1, name: 'Vẫy tay', icon: '👋', desc: 'Giơ bàn tay lên và đưa qua đưa lại để chào nhé!' },
+            { id: 2, name: 'Vỗ tay', icon: '👏', desc: 'Hai bàn tay chạm vào nhau tạo ra tiếng "bộp bộp" nào.' },
+            { id: 3, name: 'Giơ hai tay', icon: '🙌', desc: 'Giơ cả hai tay lên cao thật là cao!' },
+            { id: 4, name: 'Chạm mũi', icon: '👃', desc: 'Dùng ngón tay trỏ chạm nhẹ vào mũi của mình.' },
+            { id: 5, name: 'Chạm tai', icon: '👂', desc: 'Bé hãy tìm xem đôi tai của mình ở đâu nào?' },
+            { id: 6, name: 'Chạm đầu', icon: '🙆', desc: 'Đặt hai bàn tay lên đỉnh đầu nhé.' },
+            { id: 7, name: 'Mỉm cười', icon: '😊', desc: 'Cùng cười thật tươi với bố mẹ nào!' },
+            { id: 8, name: 'Nháy mắt', icon: '😉', desc: 'Thử nhắm một mắt lại xem bé có làm được không?' },
+            { id: 9, name: 'Lè lưỡi', icon: '😛', desc: 'Một động tác vui nhộn: Lè cái lưỡi hồng ra nào.' },
+            { id: 10, name: 'Dậm chân', icon: '👣', desc: 'Dậm chân thật mạnh xuống sàn nhà nhé.' },
+            { id: 11, name: 'Xoay vòng', icon: '🔄', desc: 'Bé hãy đứng dậy và xoay một vòng tròn nào.' },
+            { id: 12, name: 'Nhảy lên', icon: '🐰', desc: 'Nhảy như bạn thỏ nhé! Một, hai, ba... nhảy!' },
+            { id: 13, name: 'Chạm vai', icon: '🤙', desc: 'Đặt tay trái lên vai phải và ngược lại nào.' },
+            { id: 14, name: 'Ôm bản thân', icon: '🫂', desc: 'Tự ôm lấy mình một cái thật ấm áp nhé.' },
+            { id: 15, name: 'Chu môi', icon: '😗', desc: 'Chu môi xinh ra như đang thổi bong bóng vậy.' },
+            { id: 16, name: 'Vuốt má', icon: '😊', desc: 'Dùng tay vuốt nhẹ lên má mịn màng của con.' },
+            { id: 17, name: 'Lắc đầu', icon: '🙅', desc: 'Lắc đầu nhẹ nhàng qua trái rồi qua phải.' },
+            { id: 18, name: 'Gật đầu', icon: '🙆', desc: 'Gật đầu nhẹ nhàng như đang nói "Đúng ạ".' },
+            { id: 19, name: 'Che mắt', icon: '🙈', desc: 'Lấy tay che mắt lại... rồi mở ra: Ú oà!' },
+            { id: 20, name: 'Làm máy bay', icon: '✈️', desc: 'Dang rộng hai tay sang hai bên như cánh máy bay.' }
+        ];
+
+        let selectedActions = [];
+        let currentIndex = 0;
+
+        function init() {
+            lucide.createIcons();
+            const grid = document.getElementById('action-grid');
+            actionsData.forEach(action => {
+                const btn = document.createElement('button');
+                btn.id = `action-${action.id}`;
+                btn.className = 'p-4 rounded-2xl border-2 border-gray-100 bg-gray-50 hover:border-orange-200 transition-all flex flex-col items-center gap-2 relative';
+                btn.innerHTML = `
+                    <span class="text-5xl">${action.icon}</span>
+                    <span class="text-sm font-bold text-gray-700 text-center">${action.name}</span>
+                    <div class="check hidden absolute top-1 right-1 text-orange-600"><i data-lucide="check-circle-2" size="20"></i></div>
+                `;
+                btn.onclick = () => toggleAction(action);
+                grid.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        function toggleAction(action) {
+            const index = selectedActions.findIndex(a => a.id === action.id);
+            const btn = document.getElementById(`action-${action.id}`);
+            
+            if (index > -1) {
+                selectedActions.splice(index, 1);
+                btn.classList.remove('border-orange-500', 'bg-orange-50', 'scale-95');
+                btn.querySelector('.check').classList.add('hidden');
+            } else if (selectedActions.length < 5) {
+                selectedActions.push(action);
+                btn.classList.add('border-orange-500', 'bg-orange-50', 'scale-95');
+                btn.querySelector('.check').classList.remove('hidden');
+            }
+
+            document.getElementById('count-val').innerText = selectedActions.length;
+            const startBtn = document.getElementById('start-btn');
+            if (selectedActions.length === 5) {
+                startBtn.classList.remove('bg-gray-300', 'cursor-not-allowed');
+                startBtn.classList.add('bg-orange-500', 'hover:bg-orange-600', 'shadow-lg');
+                startBtn.disabled = false;
+            } else {
+                startBtn.classList.add('bg-gray-300', 'cursor-not-allowed');
+                startBtn.classList.remove('bg-orange-500', 'hover:bg-orange-600', 'shadow-lg');
+                startBtn.disabled = true;
+            }
+        }
+
+        function startGame() {
+            document.getElementById('selection-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('score-container').classList.remove('hidden');
+            currentIndex = 0;
+            updateProgressDots();
+            showAction();
+        }
+
+        function showAction() {
+            const action = selectedActions[currentIndex];
+            document.getElementById('game-message').innerText = `Động tác ${currentIndex + 1}: ${action.name}`;
+            document.getElementById('action-icon').innerText = action.icon;
+            document.getElementById('action-name').innerText = action.name + " nào!";
+            document.getElementById('action-desc').innerText = action.desc;
+            document.getElementById('progress-val').innerText = currentIndex;
+            
+            const display = document.getElementById('current-action-display');
+            display.classList.remove('animate-success');
+            void display.offsetWidth; // Trigger reflow
+            display.classList.add('animate-success');
+        }
+
+        function updateProgressDots() {
+            const dotsContainer = document.getElementById('progress-dots');
+            dotsContainer.innerHTML = '';
+            selectedActions.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.className = `w-4 h-4 rounded-full transition-all duration-300 ${i < currentIndex ? 'bg-green-500 scale-110' : (i === currentIndex ? 'bg-orange-500 w-8' : 'bg-gray-200')}`;
+                dotsContainer.appendChild(dot);
+            });
+        }
+
+        function markComplete() {
+            currentIndex++;
+            updateProgressDots();
+            
+            if (currentIndex < selectedActions.length) {
+                showAction();
+            } else {
+                showWinScreen();
+            }
+        }
+
+        function showWinScreen() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('win-screen').classList.remove('hidden');
+            document.getElementById('game-message').innerText = "Thật là tuyệt vời!";
+            document.getElementById('progress-val').innerText = "5";
+        }
+
+        function resetToSelection() {
+            selectedActions = [];
+            currentIndex = 0;
+            document.getElementById('selection-screen').classList.remove('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('win-screen').classList.add('hidden');
+            document.getElementById('score-container').classList.add('hidden');
+            document.getElementById('game-message').innerText = "Chọn 5 động tác để bắt đầu tập luyện!";
+            document.getElementById('count-val').innerText = "0";
+            
+            // Reset Grid UI
+            actionsData.forEach(action => {
+                const btn = document.getElementById(`action-${action.id}`);
+                btn.classList.remove('border-orange-500', 'bg-orange-50', 'scale-95');
+                btn.querySelector('.check').classList.add('hidden');
+            });
+
+            const startBtn = document.getElementById('start-btn');
+            startBtn.classList.add('bg-gray-300', 'cursor-not-allowed');
+            startBtn.disabled = true;
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
