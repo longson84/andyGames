@@ -68,6 +68,11 @@
         .animate-bounce-slow {
             animation: bounce 2s infinite;
         }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
     </style>
 </head>
 <body>
@@ -146,26 +151,27 @@
 
     // Tạo hiệu ứng pháo hoa nhỏ khi bé bỏ đúng
     function createParticles(x, y, color) {
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < 30; i++) { // Tăng số lượng hạt
             const p = document.createElement('div');
             p.className = 'particle';
             p.style.left = x + 'px';
             p.style.top = y + 'px';
-            p.style.width = Math.random() * 10 + 5 + 'px';
+            p.style.width = Math.random() * 8 + 3 + 'px'; // Kích thước hạt nhỏ hơn
             p.style.height = p.style.width;
             p.style.backgroundColor = color;
             container.appendChild(p);
 
             const angle = Math.random() * Math.PI * 2;
-            const velocity = Math.random() * 6 + 2;
+            const velocity = Math.random() * 10 + 5; // Tăng vận tốc ban đầu
             let posX = x;
             let posY = y;
             let life = 1;
+            const gravity = 0.2; // Thêm trọng lực nhẹ
 
             const anim = () => {
-                posX += Math.cos(angle) * velocity;
-                posY += Math.sin(angle) * velocity + 1; // trọng lực
-                life -= 0.02;
+                posX += Math.cos(angle) * velocity * life; // Giảm vận tốc theo thời gian
+                posY += Math.sin(angle) * velocity * life + gravity; // Áp dụng trọng lực
+                life -= 0.03; // Giảm tuổi thọ nhanh hơn để mờ dần
                 p.style.left = posX + 'px';
                 p.style.top = posY + 'px';
                 p.style.opacity = life;
@@ -282,8 +288,30 @@
             } else {
                 // Sai màu - cho bóng bay ngược lên một chút rồi rơi lại để bé thử lại
                 playFail();
-                ball.style.transform = 'shake 0.5s';
-                posY = parseInt(ball.style.top) - 50; 
+                ball.classList.add('shake'); // Thêm class shake
+                let bounceHeight = 100; // Bóng bật lên 100px
+                let bounceDuration = 500; // Thời gian bật lên và rơi xuống
+                let startY = parseInt(ball.style.top);
+                let startTime = null;
+
+                function animateBounce(currentTime) {
+                    if (!startTime) startTime = currentTime;
+                    let progress = (currentTime - startTime) / bounceDuration;
+                    if (progress < 0.5) { // Bật lên
+                        ball.style.top = (startY - bounceHeight * Math.sin(progress * Math.PI)) + 'px';
+                    } else { // Rơi xuống
+                        ball.style.top = (startY - bounceHeight * Math.sin(progress * Math.PI)) + 'px';
+                    }
+
+                    if (progress < 1) {
+                        requestAnimationFrame(animateBounce);
+                    } else {
+                        ball.classList.remove('shake');
+                        ball.style.top = startY + 'px'; // Đảm bảo bóng trở về vị trí ban đầu
+                        posY = startY; // Cập nhật posY để bóng tiếp tục rơi
+                    }
+                }
+                requestAnimationFrame(animateBounce);
             }
         }
 
